@@ -1,15 +1,35 @@
 const bcrypt = require("bcryptjs");
 
-const users = [
-  { id: 101, username: "alice", role: "student", passwordHash: bcrypt.hashSync("alice123", 10) },
-  { id: 102, username: "bob",   role: "admin",   passwordHash: bcrypt.hashSync("admin123", 10) },
-  { id: 103, username: "john",  role: "student", passwordHash: bcrypt.hashSync("john123", 10) }
-];
+const users = [];
+const profiles = [];
+const tasks = [];
 
-const profiles = [
-  { id: 101, ownerId: 101, displayName: "Alice Student", email: "alice@example.local" },
-  { id: 102, ownerId: 102, displayName: "Bob Admin",     email: "bob@example.local" },
-  { id: 103, ownerId: 103, displayName: "John Student",  email: "john@example.local" }
-];
+const adminUsername = process.env.ADMIN_USERNAME;
+const adminPassword = process.env.ADMIN_PASSWORD;
 
-module.exports = { users, profiles };
+if (adminUsername || adminPassword) {
+  if (
+    typeof adminUsername !== "string" ||
+    !/^[a-zA-Z0-9_.-]{3,50}$/.test(adminUsername) ||
+    typeof adminPassword !== "string" ||
+    adminPassword.length < 8 ||
+    Buffer.byteLength(adminPassword, "utf8") > 72
+  ) {
+    throw new Error("Set a valid ADMIN_USERNAME and ADMIN_PASSWORD together.");
+  }
+
+  users.push({
+    id: 101,
+    username: adminUsername.toLowerCase(),
+    role: "admin",
+    passwordHash: bcrypt.hashSync(adminPassword, 12)
+  });
+}
+
+let nextUserId = Math.max(...users.map(user => user.id), 100) + 1;
+
+function allocateUserId() {
+  return nextUserId++;
+}
+
+module.exports = { users, profiles, tasks, allocateUserId };

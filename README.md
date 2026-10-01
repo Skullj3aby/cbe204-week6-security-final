@@ -1,207 +1,70 @@
-# CBE204 Week 6 — Authentication & Web Security Demo Repository
+# CBE204 Week 6 — Secure Login and Task API
 
-A local, intentionally educational repository for **CBE204 Web Technology Laboratory, Week 6**.
+This submission combines the Week 5 task-manager CRUD workflow with the Week 6 demo's JWT authentication and authorization concepts. The API is for local lab use; it is not production-ready.
 
-Theme: **From a working REST API to a secure REST API**
+## Requirements and setup
 
-The repository supports the Week 6 lecture demonstrations, lab exercises, Postman security testing, and Secure Login Prototype assignment.
+- Node.js 20 or newer and npm
+- Postman (optional, for the security collection)
 
-## Safety
+From PowerShell:
 
-Run and test this repository **locally only**.
-
-The vulnerable application is intentionally insecure for classroom demonstration. Do not deploy it to the Internet or test it against systems you do not own or have explicit authorization to test.
-
-## Repository structure
-
-```text
-cbe204-week06-security-demo/
-├── secure-api/                 # Reference implementation for demonstrations
-├── vulnerable-api/             # Intentionally vulnerable local demo
-├── session-api/                # Secure session + cookie reference implementation
-├── postman/
-│   └── CBE204-Week06-Security.postman_collection.json
-├── docs/
-│   ├── DEMO-GUIDE.md           # Instructor run-of-show
-│   └── CHALLENGES.md           # Student challenge sequence
-├── .gitignore
-└── README.md
+```powershell
+Set-Location secure-api
+Copy-Item .env.example .env
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
-## Requirements
+Copy the generated value into `.env` as `JWT_SECRET`. Keep `.env` private; it is ignored by Git. To enable the admin-only routes, also set `ADMIN_USERNAME` and `ADMIN_PASSWORD` to a unique lab account. Both values must be provided together. Without these optional values, public registration creates student accounts only.
 
-- Node.js 20+ recommended
-- npm
-- Postman
+Then run:
 
-No external database is required. The demo uses an in-memory data store so that students can focus on authentication and authorization. Restarting a server resets the demo data.
-
-## Quick start
-
-### Secure API
-
-```bash
-cd secure-api
+```powershell
 npm install
 npm start
 ```
 
-Runs at:
+The server listens at `http://localhost:3000`. Run the automated integration checks with `npm test`.
 
-```text
-http://localhost:3000
-```
+## Database and account lifecycle
 
-### Session + Cookie API
+This lab prototype uses an in-memory store in `secure-api/src/store.js`; it requires no external database. Users, profiles, tasks, and revoked token IDs are lost when the process restarts. Registration hashes passwords with bcrypt (12 rounds) and creates a default profile; stored password hashes and JWT secrets are never included in API responses. Configure the optional administrator through environment variables rather than source-code credentials.
 
-Open another terminal:
+JWTs use HS256, a 15-minute expiry, a subject, a unique token ID, and a fixed issuer. Logout revokes the presented token in the running server until it expires. This in-memory revocation list is suitable only for a single-process classroom demonstration.
 
-```bash
-cd session-api
-npm install
-npm start
-```
+## API routes
 
-Runs at:
+| Method | Route | Access | Purpose |
+|---|---|---|---|
+| `POST` | `/auth/register` | Public | Register a student; username 3–50 allowed characters and password 8–72 UTF-8 bytes |
+| `POST` | `/auth/login` | Public | Verify credentials and issue a JWT |
+| `GET` | `/auth/me` | Authenticated | Return the current public user |
+| `POST` | `/auth/logout` | Authenticated | Revoke the current JWT |
+| `GET` | `/api/protected` | Authenticated | Example protected resource |
+| `GET` | `/api/tasks` | Authenticated | List own tasks; administrators can list all tasks |
+| `GET` | `/api/task/:id` | Owner or administrator | Read one task (also available at `/api/tasks/:id`) |
+| `POST` | `/api/tasks` | Authenticated | Create a task owned by the current user |
+| `PUT` | `/api/tasks/:id` | Owner or administrator | Update `title` and/or `completed` |
+| `DELETE` | `/api/tasks/:id` | Owner or administrator | Delete a task |
+| `GET` | `/api/profile` | Authenticated | Read the current user's profile |
+| `GET` | `/api/users/:id` | Owner or administrator | Read a public user record |
+| `DELETE` | `/api/users/:id` | Administrator | Delete a user and their tasks/profile |
+| `GET` | `/api/admin` | Administrator | Example role-restricted route |
 
-```text
-http://localhost:3002
-```
+Use `Authorization: Bearer <token>` for authenticated requests. Students only see or change their own tasks; another user's task is returned as `404`. The server assigns task ownership and user roles; clients cannot choose either. Malformed input receives a safe 4xx response, and unexpected errors do not return stack traces.
 
-The session API demonstrates `HttpOnly`, `SameSite`, session creation, protected routes, and logout. It uses an in-memory session store suitable only for classroom demonstration.
+## Postman security evidence
 
-### Vulnerable API
+Import `postman/CBE204-Week06-Security.postman_collection.json` and set `baseUrl` to `http://localhost:3000`. Run the requests in order: registration stores a generated lab username, login stores the token and user ID, task requests exercise CRUD, and logout verifies that the revoked token can no longer access protected routes.
 
-Open a second terminal:
+The collection also checks invalid credentials, validation, missing authentication, modified tokens, task ownership, and non-admin role denial. To test administrator access, configure the optional admin account in `.env`, set the Postman `adminUsername` and `adminPassword` variables locally, and run the admin login and role-restricted requests. Never export a Postman environment containing real passwords or tokens.
 
-```bash
-cd vulnerable-api
-npm install
-npm start
-```
+Capture your own Postman results for the lab submission; this repository does not claim screenshots or personal reflection answers. Complete the reflection from your own observations.
 
-Runs at:
+## Security notes and limitations
 
-```text
-http://localhost:3001
-```
-
-## Demo users
-
-Both applications initialize:
-
-| Username | Password | Role |
-|---|---|---|
-| alice | alice123 | student |
-| bob | admin123 | admin |
-| john | john123 | student |
-
-These credentials are classroom-only demo credentials.
-
-## Core endpoints
-
-```text
-POST /auth/register
-POST /auth/login
-GET  /auth/me
-POST /auth/logout
-
-GET    /api/protected
-GET    /api/profile
-GET    /api/users/:id
-DELETE /api/users/:id
-```
-
-The secure application uses JWT authentication for the reference implementation.
-
-## Postman
-
-Import:
-
-```text
-postman/CBE204-Week06-Security.postman_collection.json
-```
-
-The collection includes:
-
-- Registration
-- Login
-- Current user
-- Protected endpoint
-- Profile
-- Other-user access
-- Admin operation
-- Invalid password
-- Missing authentication
-- Modified JWT
-- Malformed JWT
-- Logout
-
-Set the collection variable:
-
-```text
-baseUrl = http://localhost:3000
-```
-
-For the vulnerable demo, change it to:
-
-```text
-http://localhost:3001
-```
-
-## Suggested teaching sequence
-
-1. Start `vulnerable-api`.
-2. Demonstrate plaintext passwords.
-3. Demonstrate missing authorization.
-4. Demonstrate IDOR/Broken Access Control.
-5. Demonstrate raw SQL-style injection concept in the vulnerable code.
-6. Demonstrate verbose error leakage.
-7. Demonstrate hardcoded JWT secret.
-8. Start `secure-api`.
-9. Compare password hashing.
-10. Demonstrate authentication middleware.
-11. Demonstrate authorization middleware.
-12. Test JWT manipulation in Postman.
-13. Run the student challenges.
-14. Use the secure implementation as a reference, not something to copy blindly.
-
-See `docs/DEMO-GUIDE.md` and `docs/CHALLENGES.md`.
-
-## Mapping to Week 6 Lab
-
-| Lab | Repository support |
-|---|---|
-| Part A | AuthN/AuthZ examples and middleware |
-| Part B | Password hashing and verification |
-| Part C | Conceptual session/cookie discussion; secure app focuses on JWT |
-| Part D | JWT login, verification, expiry, malformed/modified token tests |
-| Part E | Student/admin authorization |
-| Part F | `/api/users/:id` other-user access challenge |
-| Part G | Secure coding checklist |
-| Part H | Vulnerable API case study |
-| Part I | Postman security collection |
-| Part J | Endpoint security questions |
-| Part K | Secure Login Prototype reference |
-| Part L | Evidence targets |
-| Part M | Reflection report prompts |
-
-## Important learning point
-
-A successful login does **not** mean the user can perform every operation.
-
-Think:
-
-```text
-HTTP Request
-     ↓
-Validate Input
-     ↓
-Authenticate
-     ↓
-Authorize
-     ↓
-Process
-     ↓
-Safe Response
-```
+- Do not deploy this sample or use real credentials.
+- In-memory accounts and tasks disappear on restart. A production database must use parameterized queries, durable storage, migrations, and transaction-safe uniqueness constraints.
+- The in-memory JWT revocation list is not shared across multiple server processes; production logout needs shared revocation/session storage or a different authentication design.
+- Production deployment also needs HTTPS, rate limiting, secure secret management, monitoring, and a persistent session/token strategy.
+- `vulnerable-api/` is intentionally insecure classroom material. Do not alter or expose it outside localhost.

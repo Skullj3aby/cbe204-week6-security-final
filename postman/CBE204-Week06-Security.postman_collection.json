@@ -1,410 +1,371 @@
 {
   "info": {
-    "name": "CBE204 Week 06 Security",
-    "_postman_id": "cbe204-week06-security-demo",
-    "description": "Authentication, authorization, JWT and security testing for the CBE204 Week 6 lab.",
+    "name": "CBE204 Week 06 Secure Login and Task API",
+    "_postman_id": "cbe204-week06-security-final",
+    "description": "Run requests in order to test registration, JWT authentication, owner-scoped Week 5 task CRUD, server-side authorization, safe responses, and logout revocation.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3000"
-    },
-    {
-      "key": "username",
-      "value": "alice"
-    },
-    {
-      "key": "password",
-      "value": "alice123"
-    },
-    {
-      "key": "token",
-      "value": ""
-    },
-    {
-      "key": "userId",
-      "value": "101"
-    },
-    {
-      "key": "otherUserId",
-      "value": "102"
-    }
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "username", "value": "" },
+    { "key": "password", "value": "Week6Student123!" },
+    { "key": "token", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "taskId", "value": "" },
+    { "key": "secondUsername", "value": "" },
+    { "key": "secondToken", "value": "" },
+    { "key": "adminUsername", "value": "" },
+    { "key": "adminPassword", "value": "" },
+    { "key": "adminToken", "value": "" }
   ],
   "item": [
     {
-      "name": "Authentication",
+      "name": "Authentication and CRUD flow (run in order)",
       "item": [
         {
-          "name": "Register",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/register",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "register"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"student{{randomInt}}\",\n  \"password\": \"student123\"\n}"
-            }
-          },
+          "name": "Register Student",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.variables.set('randomInt', Math.floor(Math.random() * 100000));"
+                  "const suffix = Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('username', 'student' + suffix);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Registration succeeds without disclosing hashes', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.user.role).to.eql('student');",
+                  "  pm.expect(json).not.to.have.property('passwordHash');",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.collectionVariables.get('password'));",
+                  "  pm.collectionVariables.set('userId', json.user.id);",
+                  "});"
                 ]
               }
             }
-          ]
-        },
-        {
-          "name": "Login",
+          ],
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"admin\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
             }
-          },
+          }
+        },
+        {
+          "name": "Login Student",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Login succeeds', function () { pm.response.to.have.status(200); });",
-                  "const json = pm.response.json();",
-                  "if (json.token) pm.collectionVariables.set('token', json.token);"
+                  "pm.test('Login succeeds without disclosing hashes', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.user.role).to.eql('student');",
+                  "  pm.expect(json).not.to.have.property('passwordHash');",
+                  "  pm.expect(pm.response.text()).not.to.include(pm.collectionVariables.get('password'));",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "  pm.collectionVariables.set('userId', json.user.id);",
+                  "});"
                 ]
               }
             }
-          ]
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
         },
         {
           "name": "Get Current User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Current-user response contains no password hash', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.text()).not.to.include('passwordHash');",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": {
               "raw": "{{baseUrl}}/auth/me",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "me"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
             }
           }
         },
         {
-          "name": "Logout",
+          "name": "Get Protected Resource",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Authenticated request succeeds', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/protected",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "protected"]
+            }
+          }
+        },
+        {
+          "name": "Create Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Task created and owned by current user', function () {",
+                  "  pm.response.to.have.status(201);",
+                  "  const task = pm.response.json().task;",
+                  "  pm.expect(task.ownerId).to.eql(Number(pm.collectionVariables.get('userId')));",
+                  "  pm.collectionVariables.set('taskId', task.id);",
+                  "});"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Week 5 CRUD task\",\n  \"completed\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
             "url": {
-              "raw": "{{baseUrl}}/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "logout"
-              ]
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"]
+            }
+          }
+        },
+        {
+          "name": "List Own Tasks",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Task list is limited to the current owner', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.response.json().tasks.forEach(task => pm.expect(task.ownerId).to.eql(Number(pm.collectionVariables.get('userId'))));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks"]
+            }
+          }
+        },
+        {
+          "name": "Read Own Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Owner can read task', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/task/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "task", "{{taskId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Own Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Owner can update task', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().task.completed).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"completed\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
             }
           }
         }
       ]
     },
     {
-      "name": "Protected Resources",
-      "item": [
-        {
-          "name": "Get Protected Resource",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/protected",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "protected"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get Own Profile",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/profile",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "profile"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Get Own User",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/{{userId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "{{userId}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Other User Challenge",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/{{otherUserId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "{{otherUserId}}"
-              ]
-            }
-          }
-        },
-        {
-          "name": "Admin Operation Challenge",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/103",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "103"
-              ]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "Security Tests",
+      "name": "Security checks",
       "item": [
         {
           "name": "No Authentication",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/protected",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "protected"
-              ]
-            }
-          },
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Unauthenticated request is rejected', function () { pm.response.to.have.status(401); });"
+                  "pm.test('Protected route rejects missing token', function () { pm.response.to.have.status(401); });"
                 ]
               }
             }
-          ]
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/protected",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "protected"]
+            }
+          }
+        },
+        {
+          "name": "Invalid Registration",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Invalid registration input is rejected', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"ab\",\n  \"password\": \"short\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
         },
         {
           "name": "Invalid Password",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "auth",
-                "login"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"definitely-wrong\"\n}"
-            }
-          },
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Invalid password is rejected', function () { pm.response.to.have.status(401); });"
+                  "pm.test('Invalid credentials receive a generic failure', function () {",
+                  "  pm.response.to.have.status(401);",
+                  "  pm.expect(pm.response.json().error).to.eql('Invalid credentials');",
+                  "});"
                 ]
               }
             }
-          ]
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"definitely-wrong\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
         },
         {
           "name": "Modified Token",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/protected",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "protected"
-              ]
-            }
-          },
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const t = pm.collectionVariables.get('token') || '';",
-                  "pm.request.headers.upsert({key:'Authorization', value:'Bearer ' + t.slice(0,-1) + (t.endsWith('x') ? 'y' : 'x')});"
+                  "pm.request.headers.upsert({key: 'Authorization', value: 'Bearer ' + pm.collectionVariables.get('token') + 'x'});"
                 ]
               }
             },
@@ -413,129 +374,278 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Modified token is rejected', function () { pm.response.to.have.status(401); });"
+                  "pm.test('Modified JWT is rejected', function () { pm.response.to.have.status(401); });"
                 ]
               }
             }
-          ]
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/protected",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "protected"]
+            }
+          }
         },
         {
           "name": "Malformed Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Malformed JWT is rejected', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer not-a-jwt" }],
             "url": {
               "raw": "{{baseUrl}}/api/protected",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "protected"
-              ]
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "protected"]
             }
-          },
+          }
+        },
+        {
+          "name": "Student Cannot Call Admin Route",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Student role is denied admin access', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin"]
+            }
+          }
+        },
+        {
+          "name": "Register Second Student",
           "event": [
             {
               "listen": "prerequest",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.request.headers.upsert({key:'Authorization', value:'Bearer not-a-jwt'});"
+                  "const suffix = Date.now().toString().slice(-8) + Math.floor(Math.random() * 1000);",
+                  "pm.collectionVariables.set('secondUsername', 'student' + suffix);"
                 ]
               }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{secondUsername}}\",\n  \"password\": \"Week6Student123!\"\n}",
+              "options": { "raw": { "language": "json" } }
             },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login Second Student",
+          "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Malformed token is rejected', function () { pm.response.to.have.status(401); });"
+                  "pm.test('Second student login succeeds', function () {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.collectionVariables.set('secondToken', pm.response.json().token);",
+                  "});"
                 ]
               }
             }
-          ]
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{secondUsername}}\",\n  \"password\": \"Week6Student123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
         },
         {
-          "name": "Other User",
+          "name": "Other Student Cannot Read Task",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Owner check hides another user task', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
           "request": {
             "method": "GET",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
+            "header": [{ "key": "Authorization", "value": "Bearer {{secondToken}}" }],
             "url": {
-              "raw": "{{baseUrl}}/api/users/{{otherUserId}}",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "{{otherUserId}}"
-              ]
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
             }
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Other-user access is denied for student', function () { pm.expect([403,404]).to.include(pm.response.code); });"
-                ]
-              }
-            }
-          ]
+          }
         },
         {
-          "name": "Unauthorized Role",
-          "request": {
-            "method": "DELETE",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/users/103",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "users",
-                "103"
-              ]
-            }
-          },
+          "name": "Delete Own Task",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Student admin operation is denied', function () { pm.response.to.have.status(403); });"
+                  "pm.test('Owner can delete task', function () { pm.response.to.have.status(200); });"
                 ]
               }
             }
-          ]
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/tasks/{{taskId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tasks", "{{taskId}}"]
+            }
+          }
+        },
+        {
+          "name": "Optional Admin Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const adminUsername = pm.collectionVariables.get('adminUsername');",
+                  "const adminPassword = pm.collectionVariables.get('adminPassword');",
+                  "if (adminUsername && adminPassword) {",
+                  "  pm.test('Configured administrator can log in', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.collectionVariables.set('adminToken', pm.response.json().token);",
+                  "  });",
+                  "} else { console.log('Optional: configure adminUsername/adminPassword to test administrator access.'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{adminUsername}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Optional Administrator Route",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const adminToken = pm.collectionVariables.get('adminToken');",
+                  "if (adminToken) {",
+                  "  pm.test('Administrator can access admin route', function () { pm.response.to.have.status(200); });",
+                  "} else { console.log('Skipped: configure admin credentials to test this route.'); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin"]
+            }
+          }
+        },
+        {
+          "name": "Logout Student",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Logout revokes the active JWT', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        },
+        {
+          "name": "Revoked Token Rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Revoked JWT cannot access protected route', function () { pm.response.to.have.status(401); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/protected",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "protected"]
+            }
+          }
         }
       ]
     }
